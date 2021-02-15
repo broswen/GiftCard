@@ -1,11 +1,11 @@
 'use strict';
 
-import { APIGatewayEventRequestContext, APIGatewayProxyEvent } from "aws-lambda";
-import { DynamoDBClient, PutItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, PutItemCommand, PutItemCommandInput } from "@aws-sdk/client-dynamodb";
 
 const ddbClient = new DynamoDBClient({});
 
 const middy = require('@middy/core');
+const createError = require('http-errors')
 
 const jsonBodyParser = require('@middy/http-json-body-parser');
 const httpErrorHandler = require('@middy/http-error-handler');
@@ -26,20 +26,12 @@ const inputSchema = {
 
 const createCard = async (event, context) => {
 
-  //generate id
   const id: string = generateId();
   const code: string = generateCode(6);
-  
 
-  console.log('value', event.body.value);
-  console.log(id, code);
+  const value: number = event.body.amount;
 
-  const value: number = event.body.value;
-  //generate code
-  //check if code exists
-  //insert
-
-  const params = {
+  const params: PutItemCommandInput = {
     TableName: process.env.CARDS,
     Item: {
       PK: {
@@ -49,15 +41,23 @@ const createCard = async (event, context) => {
         S: `C#${id}`
       },
       value: {
-        N: value
+        N: `${value}`
       },
       code: {
         S: code
       },
       valid: {
-        B: true
+        BOOL: true
       }
     }
+  }
+
+  try {
+    await ddbClient.send(new PutItemCommand(params));
+
+  } catch (error) {
+    console.error(error);
+    throw createError(500);
   }
 
   return {
@@ -76,9 +76,9 @@ function generateId(sections: number = 4): string {
   let id: string = '';
 
   for (let i = 0; i < sections; i++) {
-    if (i !== 0) id.concat('-');
+    if (i !== 0) id = id.concat('-');
     for (let x = 0; x < 4; x++) {
-      id.concat(`${getRandomInt(10)}`);
+      id = id.concat(`${getRandomInt(10)}`);
     }
   }
 
@@ -88,7 +88,7 @@ function generateId(sections: number = 4): string {
 function generateCode(length: number): string {
   let code: string = '';
   for (let i = 0; i < length; i++) {
-    code.concat(`${getRandomInt(10)}`);
+    code = code.concat(`${getRandomInt(10)}`);
   }
   return code;
 }
@@ -99,5 +99,5 @@ function getRandomInt(max: number, min: number = 0): number {
 
 module.exports.handler = middy(createCard)
   .use(jsonBodyParser())
-  .use(validator({inputSchema}))
+  .use(validator({ inputSchema }))
   .use(httpErrorHandler());
