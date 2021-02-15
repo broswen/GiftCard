@@ -61,14 +61,16 @@ const useCard = async (event, context) => {
   let amountDue: number = event.body.amount;
   let cardValue: number;
   if (event.body.amount >= data.Item.value.N) {
-    // set card value to   0
+    // amount > card value, use all of card value
     amountDue -= parseFloat(data.Item.value.N);
     cardValue = 0;
   } else {
+    // card value can cover entire amount
     cardValue = parseFloat(data.Item.value.N) - event.body.amount;
     amountDue = 0;
   }
 
+  // update card value
   const params2: UpdateItemCommandInput = {
     TableName: process.env.CARDS,
     Key: {
@@ -90,6 +92,7 @@ const useCard = async (event, context) => {
     }
   }
 
+  // create card usage event record
   const params3: PutItemCommandInput = {
     TableName: process.env.CARDS,
     Item: {
