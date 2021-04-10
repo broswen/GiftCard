@@ -1,8 +1,8 @@
 'use strict';
 
-import { DynamoDBClient, PutItemCommand, PutItemCommandInput } from "@aws-sdk/client-dynamodb";
+import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
-const ddbClient = new DynamoDBClient({});
+const giftCardService: GiftCardService = new GiftCardServiceImpl()
 
 const middy = require('@middy/core');
 const createError = require('http-errors')
@@ -26,35 +26,9 @@ const inputSchema = {
 
 const createCard = async (event, context) => {
 
-  const id: string = generateId();
-  const code: string = generateCode(6);
-
-  const value: number = event.body.amount;
-
-  const params: PutItemCommandInput = {
-    TableName: process.env.CARDS,
-    Item: {
-      PK: {
-        S: `C#${id}`
-      },
-      SK: {
-        S: `C#${id}`
-      },
-      value: {
-        N: `${value}`
-      },
-      code: {
-        S: code
-      },
-      valid: {
-        BOOL: true
-      }
-    }
-  }
-
+  let giftcard: GiftCard
   try {
-    await ddbClient.send(new PutItemCommand(params));
-
+    giftcard = await giftCardService.createCard(event.body.amount)
   } catch (error) {
     console.error(error);
     throw createError(500);
@@ -62,40 +36,9 @@ const createCard = async (event, context) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify(
-      {
-        id,
-        code,
-        value
-      }
-    ),
+    body: JSON.stringify(giftcard)
   };
 };
-
-function generateId(sections: number = 4): string {
-  let id: string = '';
-
-  for (let i = 0; i < sections; i++) {
-    if (i !== 0) id = id.concat('-');
-    for (let x = 0; x < 4; x++) {
-      id = id.concat(`${getRandomInt(10)}`);
-    }
-  }
-
-  return id;
-}
-
-function generateCode(length: number): string {
-  let code: string = '';
-  for (let i = 0; i < length; i++) {
-    code = code.concat(`${getRandomInt(10)}`);
-  }
-  return code;
-}
-
-function getRandomInt(max: number, min: number = 0): number {
-  return Math.floor(min + (Math.random() * Math.floor(max)));
-}
 
 module.exports.handler = middy(createCard)
   .use(jsonBodyParser())

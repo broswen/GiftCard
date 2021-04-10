@@ -1,8 +1,8 @@
 'use strict';
 
-import { DynamoDBClient, GetItemCommand, GetItemCommandInput, GetItemCommandOutput } from "@aws-sdk/client-dynamodb";
+import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
-const ddbClient = new DynamoDBClient({});
+const giftCardService: GiftCardService = new GiftCardServiceImpl()
 
 const middy = require('@middy/core');
 const createError = require('http-errors')
@@ -29,44 +29,18 @@ const getCard = async (event, context) => {
 
   const { id, code } = event.queryStringParameters;
 
-  const params: GetItemCommandInput = {
-    TableName: process.env.CARDS,
-    Key: {
-      PK: {
-        S: `C#${id}`
-      },
-      SK: {
-        S: `C#${id}`
-      }
-    }
-  }
-
-  let data: GetItemCommandOutput;
+  let giftcard: GiftCard
+  // TODO catch different service errors
   try {
-    data = await ddbClient.send(new GetItemCommand(params));
+    giftcard = await giftCardService.getCard(id, code)
   } catch (error) {
-    console.error(error);
-    throw createError(500);
-  }
-
-  if (data.Item === undefined) {
-    // card not found with that id
-    throw createError(404);
-  }
-
-  if (data.Item.code.S !== code || !data.Item.valid.BOOL) {
-    // card code doesn't match, or is invalid
-    throw createError(400);
+    console.error(error)
+    throw createError(500)
   }
 
   return {
     statusCode: 200,
-    body: JSON.stringify(
-      {
-        id: data.Item.PK.S.split('#')[1],
-        value: parseFloat(data.Item.value.N)
-      }
-    ),
+    body: JSON.stringify(giftcard)
   };
 };
 
