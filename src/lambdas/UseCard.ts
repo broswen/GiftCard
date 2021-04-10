@@ -1,8 +1,8 @@
 'use strict';
 
-import { DynamoDBClient, GetItemCommand, GetItemCommandInput, GetItemCommandOutput, PutItemCommand, PutItemCommandInput, UpdateItemCommand, UpdateItemCommandInput } from "@aws-sdk/client-dynamodb";
+import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
-const ddbClient = new DynamoDBClient({});
+const giftCardService: GiftCardService = new GiftCardServiceImpl()
 
 const middy = require('@middy/core');
 const createError = require('http-errors');
@@ -28,92 +28,9 @@ const inputSchema = {
 
 const useCard = async (event, context) => {
 
-  const params: GetItemCommandInput = {
-    TableName: process.env.CARDS,
-    Key: {
-      PK: {
-        S: `C#${event.body.id}`
-      },
-      SK: {
-        S: `C#${event.body.id}`
-      }
-    }
-  }
-
-  let data: GetItemCommandOutput;
+  let useCardResult: UseCardResult
   try {
-    data = await ddbClient.send(new GetItemCommand(params));
-  } catch (error) {
-    console.error(error);
-    throw createError(500);
-  }
-
-  if (data.Item === undefined) {
-    // card not found with that id
-    throw createError(404);
-  }
-
-  if (data.Item.code.S !== event.body.code || !data.Item.valid.BOOL) {
-    // card code doesn't match, or is invalid
-    throw createError(400);
-  }
-
-  let amountDue: number = event.body.amount;
-  let cardValue: number;
-  if (event.body.amount >= data.Item.value.N) {
-    // amount > card value, use all of card value
-    amountDue -= parseFloat(data.Item.value.N);
-    cardValue = 0;
-  } else {
-    // card value can cover entire amount
-    cardValue = parseFloat(data.Item.value.N) - event.body.amount;
-    amountDue = 0;
-  }
-
-  // update card value
-  const params2: UpdateItemCommandInput = {
-    TableName: process.env.CARDS,
-    Key: {
-      PK: {
-        S: `C#${event.body.id}`
-      },
-      SK: {
-        S: `C#${event.body.id}`
-      }
-    },
-    UpdateExpression: 'SET #v = :v',
-    ExpressionAttributeNames: {
-      '#v': 'value'
-    },
-    ExpressionAttributeValues: {
-      ':v': {
-        N: `${cardValue}`
-      }
-    }
-  }
-
-  // create card usage event record
-  const params3: PutItemCommandInput = {
-    TableName: process.env.CARDS,
-    Item: {
-      PK: {
-        S: `C#${event.body.id}`
-      },
-      SK: {
-        S: `E#${new Date().toISOString()}`
-      },
-      value: {
-        N: data.Item.value.N
-      },
-      amount: {
-        N: `${event.body.amount}`
-      }
-    }
-  }
-
-  try {
-    await ddbClient.send(new UpdateItemCommand(params2));
-    await ddbClient.send(new PutItemCommand(params3));
+    useCardResult = await giftCardService.useCard(event.body.id, event.body.code, event.body.amount)
   } catch (error) {
     console.error(error);
     throw createError(500);
@@ -121,12 +38,7 @@ const useCard = async (event, context) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify(
-      {
-        amountDue,
-        cardValue
-      }
-    ),
+    body: JSON.stringify(useCardResult)
   };
 };
 

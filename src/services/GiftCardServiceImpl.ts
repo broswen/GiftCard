@@ -1,4 +1,4 @@
-import { DynamoDBClient, GetItemCommand, GetItemCommandInput, GetItemCommandOutput, PutItemCommand, PutItemCommandInput, PutItemCommandOutput } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, GetItemCommand, GetItemCommandInput, GetItemCommandOutput, PutItemCommand, PutItemCommandInput, PutItemCommandOutput, UpdateItemCommand, UpdateItemCommandInput } from "@aws-sdk/client-dynamodb";
 
 export class GiftCardServiceImpl implements GiftCardService {
 
@@ -88,7 +88,89 @@ export class GiftCardServiceImpl implements GiftCardService {
 
     }
 
-    useCard(id: string, code: string, amount: number): Promise<UseCardResult> {
+    async useCard(id: string, code: string, amount: number): Promise<UseCardResult> {
+
+        let giftcard: GiftCard
+        try {
+            giftcard = await this.getCard(id, code)
+        } catch (error) {
+            console.error(error)
+            throw error
+        }
+
+        let startingValue: number = giftcard.value
+
+        if (!giftcard.valid) {
+            let e = new Error('card is not valid')
+            console.error(e)
+            throw e
+        }
+
+        let amountDue: number = amount
+        let cardValue: number
+        if (amount >= giftcard.value) {
+            // amount > card value, use all of card value
+            amountDue -= giftcard.value
+            cardValue = 0
+        } else {
+            // card value can cover entire amount
+            cardValue = giftcard.value - amount
+            amountDue = 0
+        }
+
+        const params2: UpdateItemCommandInput = {
+            TableName: process.env.CARDS,
+            Key: {
+                PK: {
+                    S: `C#${id}`
+                },
+                SK: {
+                    S: `C#${id}`
+                }
+            },
+            UpdateExpression: 'SET #v = :v',
+            ExpressionAttributeNames: {
+                '#v': 'value'
+            },
+            ExpressionAttributeValues: {
+                ':v': {
+                    N: `${cardValue}`
+                }
+            }
+        }
+
+        // create card usage event record
+        const params3: PutItemCommandInput = {
+            TableName: process.env.CARDS,
+            Item: {
+                PK: {
+                    S: `C#${id}`
+                },
+                SK: {
+                    S: `E#${new Date().toISOString()}`
+                },
+                value: {
+                    N: String(startingValue)
+                },
+                amount: {
+                    N: String(amount)
+                }
+            }
+        }
+
+        try {
+            await this.ddbClient.send(new UpdateItemCommand(params2));
+            await this.ddbClient.send(new PutItemCommand(params3));
+        } catch (error) {
+            console.error(error);
+            throw error
+        }
+
+        return {
+            id,
+            amountDue,
+            remainingValue: cardValue
+        }
 
     }
 
