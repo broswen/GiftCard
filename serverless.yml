@@ -29,19 +29,19 @@ functions:
     handler: src/lambdas/CreateCard.handler
     events:
       - httpApi:
-          path: card
+          path: /card
           method: post
   GetCard:
     handler: src/lambdas/GetCard.handler
     events:
       - httpApi:
-          path: card
+          path: /card
           method: get
   UseCard:
     handler: src/lambdas/UseCard.handler
     events:
       - httpApi:
-          path: card
+          path: /card
           method: put
 
 resources:

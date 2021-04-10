@@ -1,4 +1,6 @@
 import { DynamoDBClient, GetItemCommand, GetItemCommandInput, GetItemCommandOutput, PutItemCommand, PutItemCommandInput, PutItemCommandOutput, UpdateItemCommand, UpdateItemCommandInput } from "@aws-sdk/client-dynamodb";
+import { GiftCard, GiftCardService, UseCardResult } from './GiftCardService';
+
 
 export class GiftCardServiceImpl implements GiftCardService {
 

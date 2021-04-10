@@ -1,5 +1,6 @@
 'use strict';
 
+import { GiftCard, GiftCardService } from "../services/GiftCardService";
 import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
 const giftCardService: GiftCardService = new GiftCardServiceImpl()

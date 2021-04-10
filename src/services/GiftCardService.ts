@@ -1,4 +1,4 @@
-interface GiftCardService {
+export interface GiftCardService {
     createCard(value: number): Promise<GiftCard>
     getCard(id: string, code: string): Promise<GiftCard>
     useCard(id: string, code: string, amount: number): Promise<UseCardResult>
@@ -6,14 +6,14 @@ interface GiftCardService {
     generateCode(length: number): string
 }
 
-type GiftCard = {
+export type GiftCard = {
     id: string
     code: string
     value: number
     valid: boolean
 }
 
-type UseCardResult = {
+export type UseCardResult = {
     id: string
     amountDue: number
     remainingValue: number
