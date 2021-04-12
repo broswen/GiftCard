@@ -40,15 +40,11 @@ const getCard = async (event, context) => {
   if (response instanceof ServiceError) {
     console.error(response)
 
-    if (response instanceof GiftCardNotFoundError) {
-      throw createError(404, 'card not found')
+    switch (response.constructor) {
+      case GiftCardNotFoundError: throw createError(404, 'card not found')
+      case InvalidCodeError: throw createError(400, 'invalid code')
+      default: throw createError(500)
     }
-
-    if (response instanceof InvalidCodeError) {
-      throw createError(400, 'invalid code')
-    }
-
-    throw createError(500)
   }
 
   let giftcard: GiftCard = response
