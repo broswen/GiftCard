@@ -1,7 +1,9 @@
+import { ServiceResponse } from "../models/ServiceResponse"
+
 export interface GiftCardService {
-    createCard(value: number): Promise<GiftCard>
-    getCard(id: string, code: string): Promise<GiftCard>
-    useCard(id: string, code: string, amount: number): Promise<UseCardResult>
+    createCard(value: number): Promise<ServiceResponse<GiftCard>>
+    getCard(id: string, code: string): Promise<ServiceResponse<GiftCard>>
+    useCard(id: string, code: string, amount: number): Promise<ServiceResponse<UseCardResult>>
     generateId(sections: number): string
     generateCode(length: number): string
 }

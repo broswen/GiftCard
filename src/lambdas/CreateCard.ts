@@ -1,5 +1,7 @@
 'use strict';
 
+import { ServiceError } from "../models/ServiceError";
+import { ServiceResponse } from "../models/ServiceResponse";
 import { GiftCard, GiftCardService } from "../services/GiftCardService";
 import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
@@ -27,13 +29,14 @@ const inputSchema = {
 
 const createCard = async (event, context) => {
 
-  let giftcard: GiftCard
-  try {
-    giftcard = await giftCardService.createCard(event.body.amount)
-  } catch (error) {
-    console.error(error);
-    throw createError(500);
+  const response: ServiceResponse<GiftCard> = await giftCardService.createCard(event.body.amount)
+
+  if (response instanceof ServiceError) {
+    console.error(response)
+    throw createError(500)
   }
+
+  let giftcard: GiftCard = response
 
   return {
     statusCode: 200,

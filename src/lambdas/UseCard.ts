@@ -1,5 +1,10 @@
 'use strict';
 
+import { GiftCardNotFoundError } from "../models/GiftCardNotFoundError";
+import { InvalidCardError } from "../models/InvalidCardError";
+import { InvalidCodeError } from "../models/InvalidCodeError";
+import { ServiceError } from "../models/ServiceError";
+import { ServiceResponse } from "../models/ServiceResponse";
 import { GiftCardService, UseCardResult } from "../services/GiftCardService";
 import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
@@ -29,13 +34,27 @@ const inputSchema = {
 
 const useCard = async (event, context) => {
 
-  let useCardResult: UseCardResult
-  try {
-    useCardResult = await giftCardService.useCard(event.body.id, event.body.code, event.body.amount)
-  } catch (error) {
-    console.error(error);
-    throw createError(500);
+  const response: ServiceResponse<UseCardResult> = await giftCardService.useCard(event.body.id, event.body.code, event.body.amount)
+
+  if (response instanceof ServiceError) {
+    console.error(response)
+
+    if (response instanceof GiftCardNotFoundError) {
+      throw createError(404, 'card not found')
+    }
+
+    if (response instanceof InvalidCodeError) {
+      throw createError(400, 'invalid code')
+    }
+
+    if (response instanceof InvalidCardError) {
+      throw createError(400, 'invalid card')
+    }
+
+    throw createError(500)
   }
+
+  let useCardResult: UseCardResult = response
 
   return {
     statusCode: 200,

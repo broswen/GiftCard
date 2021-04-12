@@ -1,5 +1,9 @@
 'use strict';
 
+import { GiftCardNotFoundError } from "../models/GiftCardNotFoundError";
+import { InvalidCodeError } from "../models/InvalidCodeError";
+import { ServiceError } from "../models/ServiceError";
+import { ServiceResponse } from "../models/ServiceResponse";
 import { GiftCard, GiftCardService } from "../services/GiftCardService";
 import { GiftCardServiceImpl } from "../services/GiftCardServiceImpl";
 
@@ -30,14 +34,24 @@ const getCard = async (event, context) => {
 
   const { id, code } = event.queryStringParameters;
 
-  let giftcard: GiftCard
   // TODO catch different service errors
-  try {
-    giftcard = await giftCardService.getCard(id, code)
-  } catch (error) {
-    console.error(error)
+  let response: ServiceResponse<GiftCard> = await giftCardService.getCard(id, code)
+
+  if (response instanceof ServiceError) {
+    console.error(response)
+
+    if (response instanceof GiftCardNotFoundError) {
+      throw createError(404, 'card not found')
+    }
+
+    if (response instanceof InvalidCodeError) {
+      throw createError(400, 'invalid code')
+    }
+
     throw createError(500)
   }
+
+  let giftcard: GiftCard = response
 
   return {
     statusCode: 200,

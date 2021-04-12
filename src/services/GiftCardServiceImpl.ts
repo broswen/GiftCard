@@ -1,4 +1,9 @@
 import { DynamoDBClient, GetItemCommand, GetItemCommandInput, GetItemCommandOutput, PutItemCommand, PutItemCommandInput, PutItemCommandOutput, UpdateItemCommand, UpdateItemCommandInput } from "@aws-sdk/client-dynamodb";
+import { GiftCardNotFoundError } from '../models/GiftCardNotFoundError';
+import { InvalidCardError } from "../models/InvalidCardError";
+import { InvalidCodeError } from "../models/InvalidCodeError";
+import { ServiceError } from "../models/ServiceError";
+import { ServiceResponse } from "../models/ServiceResponse";
 import { GiftCard, GiftCardService, UseCardResult } from './GiftCardService';
 
 
@@ -10,7 +15,7 @@ export class GiftCardServiceImpl implements GiftCardService {
         this.ddbClient = new DynamoDBClient({})
     }
 
-    async createCard(value: number): Promise<GiftCard> {
+    async createCard(value: number): Promise<ServiceResponse<GiftCard>> {
         const id: string = this.generateId();
         const code: string = this.generateCode()
 
@@ -39,8 +44,7 @@ export class GiftCardServiceImpl implements GiftCardService {
             data = await this.ddbClient.send(new PutItemCommand(params));
 
         } catch (error) {
-            console.error(error);
-            throw error
+            return new ServiceError(error.message)
         }
 
         return {
@@ -52,7 +56,7 @@ export class GiftCardServiceImpl implements GiftCardService {
     }
 
     // TODO throw different errors, card not found, code doesn't match
-    async getCard(id: string, code: string): Promise<GiftCard> {
+    async getCard(id: string, code: string): Promise<ServiceResponse<GiftCard>> {
         const params: GetItemCommandInput = {
             TableName: process.env.CARDS,
             Key: {
@@ -69,16 +73,15 @@ export class GiftCardServiceImpl implements GiftCardService {
         try {
             data = await this.ddbClient.send(new GetItemCommand(params));
         } catch (error) {
-            console.error(error);
-            throw error
+            return new ServiceError(error.message)
         }
 
         if (data.Item === undefined) {
-            throw new Error("card not found")
+            return new GiftCardNotFoundError(`${id} not found`)
         }
 
         if (data.Item.code.S !== code) {
-            throw new Error("code does not match")
+            return new InvalidCodeError(`${code} does not match`)
         }
 
         return {
@@ -90,22 +93,20 @@ export class GiftCardServiceImpl implements GiftCardService {
 
     }
 
-    async useCard(id: string, code: string, amount: number): Promise<UseCardResult> {
+    async useCard(id: string, code: string, amount: number): Promise<ServiceResponse<UseCardResult>> {
 
-        let giftcard: GiftCard
-        try {
-            giftcard = await this.getCard(id, code)
-        } catch (error) {
-            console.error(error)
-            throw error
+        const response: ServiceResponse<GiftCard> = await this.getCard(id, code)
+
+        if (response instanceof ServiceError) {
+            return response
         }
+
+        const giftcard: GiftCard = response
 
         let startingValue: number = giftcard.value
 
         if (!giftcard.valid) {
-            let e = new Error('card is not valid')
-            console.error(e)
-            throw e
+            return new InvalidCardError(`${id} card is invalid`)
         }
 
         let amountDue: number = amount
@@ -165,7 +166,7 @@ export class GiftCardServiceImpl implements GiftCardService {
             await this.ddbClient.send(new PutItemCommand(params3));
         } catch (error) {
             console.error(error);
-            throw error
+            return new ServiceError(error.message)
         }
 
         return {
